@@ -1,0 +1,95 @@
+version: "3.8"
+
+services:
+
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5431:5431"
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    networks:
+      - spring
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@domain.ca
+      PGADMIN_DEFAULT_PASSWORD: password
+    ports:
+      - "8888:80"
+    restart: unless-stopped
+    networks:
+      - spring
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    container_name: mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=rootadmin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=post-service
+    volumes:
+      - ./data/mongo/SpringSocialMongo:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    restart: unless-stopped
+    command: mongod --auth
+    networks:
+      - spring
+
+  post-service:
+    image: post-service
+    ports:
+      - "8082:8082"
+    build:
+      context: ./post-service
+      dockerfile: ./Dockerfile
+    container_name: post-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - mongodb
+    networks:
+      - spring
+
+  comment-service:
+    image: comment-service
+    ports:
+      - "8083:8083"
+    build:
+      context: ./comment-service
+      dockerfile: ./Dockerfile
+    container_name: comment-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres
+    networks:
+      - spring
+
+  user-service:
+    image: user-service
+    ports:
+      - "8084:8084"
+    build:
+      context: ./user-service
+      dockerfile: ./Dockerfile
+    container_name: user-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres
+    networks:
+      - spring
+
+networks:
+  spring:
+    driver: bridge
